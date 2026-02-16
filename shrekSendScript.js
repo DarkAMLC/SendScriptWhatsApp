@@ -1,27 +1,54 @@
-async function enviarScript(scriptText){
-	const lines = scriptText.split(/[\n\t]+/).map(line => line.trim()).filter(line => line);
-	main = document.querySelector("#main"),
-	textarea = main.querySelector(`div[contenteditable="true"]`)
-	
-	if(!textarea) throw new Error("Não há uma conversa aberta")
-	
-	for(const line of lines){
-		console.log(line)
-	
-		textarea.focus();
-		document.execCommand('insertText', false, line);
-		textarea.dispatchEvent(new Event('change', {bubbles: true}));
-	
-		setTimeout(() => {
-			(main.querySelector(`[data-testid="send"]`) || main.querySelector(`[data-icon="send"]`)).click();
-		}, 100);
-		
-		if(lines.indexOf(line) !== lines.length - 1) await new Promise(resolve => setTimeout(resolve, 250));
-	}
-	
-	return lines.length;
+async function enviarScript(scriptText, delay = 250) {
+    const main = document.querySelector("#main");
+    if (!main) throw new Error("No se encontró el contenedor principal (#main).");
+
+    const textarea = main.querySelector('div[contenteditable="true"]');
+    if (!textarea) throw new Error("No hay una conversación abierta.");
+
+    const lines = scriptText
+        .split(/[\n\t]+/)
+        .map(line => line.trim())
+        .filter(Boolean);
+
+    const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+
+    const getSendButton = () => {
+        return (
+            main.querySelector('button[aria-label="Enviar"]:not([aria-disabled="true"])') ||
+            main.querySelector('button[data-tab="11"]:not([aria-disabled="true"])') ||
+            main.querySelector('[data-testid="send"]') ||
+            main.querySelector('[data-icon="send"]')?.closest("button")
+        );
+    };
+
+    let sent = 0;
+
+    for (const line of lines) {
+        textarea.focus();
+
+        // Método más moderno que execCommand (aunque aún compatible)
+        document.execCommand("selectAll", false, null);
+        document.execCommand("insertText", false, line);
+
+        textarea.dispatchEvent(new Event("input", { bubbles: true }));
+
+        await sleep(100);
+
+        const sendButton = getSendButton();
+        if (!sendButton) throw new Error("No se encontró el botón de enviar.");
+
+        sendButton.click();
+        sent++;
+
+        if (sent < lines.length) {
+            await sleep(delay);
+        }
+    }
+
+    return sent;
 }
 
+// Uso
 enviarScript(`
 SHREK
 
@@ -3700,4 +3727,6 @@ black) Oh, that's funny. Oh. Oh. I can't
 breathe. I can't breathe.
 
 THE END
-`).then(e => console.log(`Código finalizado, ${e} mensagens enviadas`)).catch(console.error)
+texto para enviar`)
+    .then(e => console.log(`Código finalizado, ${e} mensajes enviados`))
+    .catch(console.error);
